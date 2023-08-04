@@ -101,7 +101,7 @@ router.get('session/connection/:chatID', utils.authMiddleware, async (req, res) 
 //  DELETE /session/connection/:connectionID — Deletes all the data that have the connection ID. - [PROTECTED-ROUTE]
 router.delete('/session/connection/:chatID', async (req, res) => {
     try {
-        await pool.query('DELETE FROM connections WHERE chat_id = $1', [req.params.chatID]);
+        await pool.query('DELETE FROM chats WHERE chat_id = $1', [req.params.chatID]);
         res.status(204).json({ success: true, msg: 'unmatched'})
     } catch (error) {
         res.json({ success: false, msg: error });
@@ -109,7 +109,7 @@ router.delete('/session/connection/:chatID', async (req, res) => {
 });
 
 //  * POST /session/connection/:userID1/:userID2 — Adds user ID1 and user ID2 with the same connection ID. - [PROTECTED-ROUTE]
-router.post('/session/connection/:userID', async (req, res) => {
+router.post('/session/connection/:chatID', async (req, res) => {
     try {
         await pool.query('INSERT INTO chats (userID, messages) VALUES ($1, $2)', [req.params.userID, {"us": "You matched ❤"}]);
         res.status(204).json({ success: true, msg: 'matched'})
@@ -121,20 +121,23 @@ router.post('/session/connection/:userID', async (req, res) => {
 
 
 //  GET /match/:userID — Return all the matches of the logged-in user. - [PROTECTED-ROUTE]
-router.patch('/like/:myUserID/:likeUserID', utils.authMiddleware, async (req, res) => {
+router.patch('/like/:myUserID/:likeUserID', async (req, res) => {
+    const matchId = uuidv4();
     try {
         // await pool.query('UPDATE users SET myLikes = array_append(myLikes, $1) WHERE id = $2', [req.params.likeUserID, req.params.myUserId]);
-        await pool.query('IF $1 = ANY (likeMe) WHERE id = $2 THEN (UPDATE users SET matches = array_append(matches, $3), array_remove(likeMe, $4) WHERE id = $5) ELSE UPDATE users SET myLikes = array_append(myLikes, $6) WHERE id = $7 END IF', [req.params.likeUserID, req.params.myUserID, req.params.myUserID, req.params.likeUserID, req.params.likeUserID, req.params.myUserID, req.params.likeUserID]);
-        res.status(200).json({ success: true, data: 'success!' })
+        // const response = await pool.query('IF $1 = ANY (likeMe) WHERE id = $2 THEN (UPDATE users SET matches = array_append(matches, $3), array_remove(likeMe, $4) WHERE id = $5 AND WHERE id = $6 RETURNING *) ELSE UPDATE users SET myLikes = array_append(myLikes, $7) WHERE id = $8 RETURNING * END IF', [req.params.likeUserID, req.params.myUserID, matchId, req.params.myUserID, req.params.likeUserID, req.params.likeUserID, req.params.likeUserID, req.params.myUserID, req.params.likeUserID]);
+        const response = await pool.query('DO " BEGIN SELECT id FROM users WHERE id = $1; IF (uid = ANY (likeMe)) THEN UPDATE users SET matches = array_append(matches, $2), array_remove(likeMe, $3) RETURNING *; END IF; END;"', [req.params.myUserID, req.params.likeUserID, req.params.likeUserID]);
+        // res.redirect(`/session/connection/${req.params.myUserID}`);
+        res.status(200).json({success: true, data: response.rows});
     } catch (error) {
         res.json({ success: false, msg: error });
     }
 });
 
 //  DELETE /match/:userID — Deletes the user ID from the match list. - [PROTECTED-ROUTE]
-router.delete('/match/:userID', async (req, res, next) => {
+router.delete('/match/:chatID', async (req, res, next) => {
     try {
-        await pool.query('SELECT * FROM chats')
+        await pool.query('DELETE FROM chats WHERE chat_id = $1', [req.params.chatID])
     } catch (error) {
         res.json({ success: false, msg: error });
     }
