@@ -25,5 +25,5 @@ app.use(routes);
 
 // Server listens on http://localhost:5000
 app.listen(PORT, () => {
-    console.log(`Server listeniing on port: ${PORT}`)
+    console.log(`Server listening on port: ${PORT}`)
 });
